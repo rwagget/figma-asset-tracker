@@ -14,7 +14,6 @@ type NewRowState = {
   active: boolean
   name: string
   url: string
-  stage: 'name' | 'url'
 }
 
 function generateId(): string {
@@ -200,7 +199,6 @@ function Widget() {
     active: false,
     name: '',
     url: '',
-    stage: 'name',
   } as NewRowState)
 
   const notDone = assets.filter((a) => !a.implemented)
@@ -210,16 +208,16 @@ function Widget() {
   const total = assets.length
 
   function handleAddAsset() {
-    setNewRow({ active: true, name: '', url: '', stage: 'name' })
+    setNewRow({ active: true, name: '', url: '' })
   }
 
   function handleNameConfirm(value: string) {
     const name = value.trim()
     if (!name) {
-      setNewRow({ active: false, name: '', url: '', stage: 'name' })
+      setNewRow({ active: false, name: '', url: '' })
       return
     }
-    setNewRow({ active: true, name, url: '', stage: 'url' })
+    setNewRow({ active: true, name, url: '' })
   }
 
   function handleUrlConfirm(value: string) {
@@ -228,7 +226,7 @@ function Widget() {
     if (name) {
       setAssets([...assets, { id: generateId(), name, url, implemented: false }])
     }
-    setNewRow({ active: false, name: '', url: '', stage: 'name' })
+    setNewRow({ active: false, name: '', url: '' })
   }
 
   function handleToggle(id: string) {
