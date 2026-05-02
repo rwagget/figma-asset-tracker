@@ -16,11 +16,10 @@
     "watch": "build-figma-plugin --no-typecheck --watch"
   },
   "figma-plugin": {
-    "editorType": ["figjam"],
+    "editorType": ["figma"],
     "containsWidget": true,
     "id": "asset-tracker-widget",
     "name": "Asset Tracker",
-    "main": "src/main.tsx",
-    "ui": "src/ui.tsx"
+    "main": "src/main.tsx"
   }
 }
