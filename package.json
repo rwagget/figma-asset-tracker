@@ -12,14 +12,15 @@
     "typescript": ">=5"
   },
   "scripts": {
-    "build": "build-figma-plugin --no-typecheck --minify",
-    "watch": "build-figma-plugin --no-typecheck --watch"
-  },
+  "build": "build-figma-plugin --no-typecheck --minify",
+  "watch": "build-figma-plugin --no-typecheck --watch"
+},
   "figma-plugin": {
-    "editorType": ["figma"],
-    "containsWidget": true,
-    "id": "asset-tracker-widget",
-    "name": "Asset Tracker",
-    "main": "src/main.tsx"
-  }
+  "editorType": ["figma"],
+  "containsWidget": true,
+  "id": "asset-tracker-widget",
+  "name": "Asset Tracker",
+  "main": "src/main.tsx",
+  "documentAccess": "dynamic-page"
+}
 }

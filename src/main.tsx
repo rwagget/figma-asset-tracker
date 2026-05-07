@@ -1,236 +1,248 @@
 /** @jsx figma.widget.h */
 
 const { widget } = figma
-const { AutoLayout, Text, Input, Rectangle, useSyncedState, register } = widget
+const { AutoLayout, Text, Input, Rectangle, SVG, useSyncedState, useEffect, waitForTask, register } = widget
+
+type Status = 'Pending' | 'Ready To Use' | 'Implemented'
 
 type Asset = {
   id: string
   name: string
   url: string
-  implemented: boolean
-}
-
-type NewRowState = {
-  active: boolean
-  name: string
-  url: string
+  status: Status
+  sortKey: number
 }
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
-function ImplementedToggle({
-  value,
-  onChange,
-}: {
-  value: boolean
-  onChange: (v: boolean) => void
-}) {
+function statusColor(status: Status): string {
+  if (status === 'Ready To Use') return '#0052CC'
+  if (status === 'Implemented') return '#1A7F3C'
+  return '#92400E'
+}
+
+function statusPillBg(status: Status): string {
+  if (status === 'Ready To Use') return '#DBEAFE'
+  if (status === 'Implemented') return '#DCFCE7'
+  return '#FEF3C7'
+}
+
+function statusBg(status: Status): string {
+  if (status === 'Implemented') return '#FAFAFA'
+  return '#FDFDFD'
+}
+
+function statusOrder(status: Status): number {
+  if (status === 'Ready To Use') return 0
+  if (status === 'Pending') return 1
+  return 2
+}
+
+function nextStatus(status: Status): Status {
+  if (status === 'Pending') return 'Ready To Use'
+  if (status === 'Ready To Use') return 'Implemented'
+  return 'Pending'
+}
+
+function StatusPill({ status, onClick }: { status: Status; onClick: () => void }) {
   return (
     <AutoLayout
-      width={36}
-      height={20}
-      cornerRadius={10}
-      fill={value ? '#4CAF50' : '#D9D9D9'}
-      verticalAlignItems="center"
-      horizontalAlignItems={value ? 'end' : 'start'}
-      padding={{ left: 3, right: 3 }}
-      onClick={() => onChange(!value)}
+      padding={{ left: 8, right: 8, top: 4, bottom: 4 }}
+      fill={statusPillBg(status)}
+      cornerRadius={4}
+      onClick={onClick}
     >
-      <AutoLayout width={14} height={14} cornerRadius={7} fill="#FFFFFF" />
+      <Text fontSize={11} fontFamily="Inter" fill={statusColor(status)}>
+        {status}
+      </Text>
+    </AutoLayout>
+  )
+}
+
+function TrashIcon({ onClick }: { onClick: () => void }) {
+  return (
+    <AutoLayout
+      width={30}
+      height={30}
+      verticalAlignItems="center"
+      horizontalAlignItems="center"
+      cornerRadius={15}
+      fill="#FDFDFD"
+      stroke="#E0E0E0"
+      strokeWidth={1}
+      onClick={onClick}
+      opacity={0.7}
+    >
+      <SVG
+        width={14}
+        height={14}
+        src='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#111111"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>'
+      />
+    </AutoLayout>
+  )
+}
+
+function OpenUrlIcon({ onClick, disabled }: { onClick?: () => void; disabled: boolean }) {
+  return (
+    <AutoLayout
+      width={30}
+      height={30}
+      verticalAlignItems="center"
+      horizontalAlignItems="center"
+      cornerRadius={15}
+      fill="#FDFDFD"
+      stroke="#E0E0E0"
+      strokeWidth={1}
+      onClick={onClick}
+      opacity={disabled ? 0.3 : 0.7}
+    >
+      <SVG
+        width={14}
+        height={14}
+        src='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#111111"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>'
+      />
     </AutoLayout>
   )
 }
 
 function AssetRow({
   asset,
-  onToggle,
+  isLast,
+  onStatusChange,
   onDelete,
   onEditName,
   onEditUrl,
 }: {
   asset: Asset
-  onToggle: () => void
+  isLast: boolean
+  onStatusChange: () => void
   onDelete: () => void
   onEditName: (v: string) => void
   onEditUrl: (v: string) => void
 }) {
+  const isPlaceholderUrl = asset.url === 'URL to asset'
+
   return (
     <AutoLayout
+      direction="vertical"
       width="fill-parent"
-      height={44}
-      verticalAlignItems="center"
       spacing={0}
-      fill={asset.implemented ? '#F9F9F9' : '#FFFFFF'}
-      stroke="#E5E5E5"
-      strokeWidth={1}
-      cornerRadius={6}
+      fill={statusBg(asset.status)}
     >
-      <AutoLayout width={180} height="fill-parent" verticalAlignItems="center" padding={{ left: 12, right: 8 }}>
-        <Input
-          value={asset.name}
-          placeholder="Asset name"
-          onTextEditEnd={(e) => onEditName(e.characters)}
-          fontSize={13}
-          fontFamily="Inter"
-          fill={asset.implemented ? '#999999' : '#1A1A1A'}
-          width="fill-parent"
-          inputBehavior="truncate"
-        />
-      </AutoLayout>
-
-      <Rectangle width={1} height={28} fill="#E5E5E5" />
-
-      <AutoLayout width="fill-parent" height="fill-parent" verticalAlignItems="center" padding={{ left: 12, right: 8 }}>
-        <Input
-          value={asset.url}
-          placeholder="https://..."
-          onTextEditEnd={(e) => onEditUrl(e.characters)}
-          fontSize={12}
-          fontFamily="Inter"
-          fill={asset.url ? '#0066CC' : '#AAAAAA'}
-          width="fill-parent"
-          inputBehavior="truncate"
-        />
-      </AutoLayout>
-
-      <Rectangle width={1} height={28} fill="#E5E5E5" />
-
       <AutoLayout
-        width={44}
-        height="fill-parent"
+        width="fill-parent"
+        height={60}
         verticalAlignItems="center"
-        horizontalAlignItems="center"
-        opacity={asset.url ? 1 : 0.3}
-        onClick={
-          asset.url
-            ? () => {
-                const url = asset.url.startsWith('http') ? asset.url : 'https://' + asset.url
-                figma.openExternal(url)
-              }
-            : undefined
-        }
+        spacing={0}
+        padding={{ left: 20, right: 12 }}
       >
-        <Text fontSize={14} fontFamily="Inter">{'\u2197'}</Text>
-      </AutoLayout>
+        {/* Name */}
+        <AutoLayout width={200} height="fill-parent" verticalAlignItems="center" padding={{ right: 16 }}>
+          <Input
+            value={asset.name}
+            placeholder="Asset name"
+            onTextEditEnd={(e) => onEditName(e.characters)}
+            fontSize={14}
+            fontFamily="Inter"
+            fill={asset.status === 'Implemented' ? '#999999' : '#111111'}
+            width="fill-parent"
+            inputBehavior="truncate"
+          />
+        </AutoLayout>
 
-      <Rectangle width={1} height={28} fill="#E5E5E5" />
+        {/* Status pill */}
+        <AutoLayout width={130} height="fill-parent" verticalAlignItems="center">
+          <StatusPill status={asset.status} onClick={onStatusChange} />
+        </AutoLayout>
 
-      <AutoLayout width={64} height="fill-parent" verticalAlignItems="center" horizontalAlignItems="center">
-        <ImplementedToggle value={asset.implemented} onChange={onToggle} />
-      </AutoLayout>
+        {/* URL */}
+        <AutoLayout width="fill-parent" height="fill-parent" verticalAlignItems="center" padding={{ right: 12 }}>
+          <Input
+            value={asset.url}
+            placeholder="URL to asset"
+            onTextEditEnd={(e) => onEditUrl(e.characters)}
+            fontSize={13}
+            fontFamily="Inter"
+            fill={isPlaceholderUrl ? '#BBBBBB' : '#000000'}
+            width="fill-parent"
+            inputBehavior="truncate"
+          />
+        </AutoLayout>
 
-      <Rectangle width={1} height={28} fill="#E5E5E5" />
-
-      <AutoLayout
-        width={36}
-        height="fill-parent"
-        verticalAlignItems="center"
-        horizontalAlignItems="center"
-        onClick={onDelete}
-      >
-        <Text fontSize={14} fontFamily="Inter" fill="#999999">{'\u2715'}</Text>
-      </AutoLayout>
-    </AutoLayout>
-  )
-}
-
-function NewAssetRow({
-  state,
-  onNameConfirm,
-  onUrlConfirm,
-}: {
-  state: NewRowState
-  onNameConfirm: (v: string) => void
-  onUrlConfirm: (v: string) => void
-}) {
-  return (
-    <AutoLayout
-      width="fill-parent"
-      height={44}
-      verticalAlignItems="center"
-      spacing={0}
-      fill="#F0F7FF"
-      stroke="#99CAFF"
-      strokeWidth={1}
-      cornerRadius={6}
-    >
-      <AutoLayout width={180} height="fill-parent" verticalAlignItems="center" padding={{ left: 12, right: 8 }}>
-        <Input
-          value={state.name}
-          placeholder="Asset name..."
-          onTextEditEnd={(e) => onNameConfirm(e.characters)}
-          fontSize={13}
-          fontFamily="Inter"
-          fill="#1A1A1A"
-          width="fill-parent"
-          inputBehavior="truncate"
+        {/* Open URL */}
+        <OpenUrlIcon
+          disabled={isPlaceholderUrl}
+          onClick={
+            !isPlaceholderUrl
+              ? () => {
+                  const url = asset.url.startsWith('http') ? asset.url : 'https://' + asset.url
+                  figma.openExternal(url)
+                }
+              : undefined
+          }
         />
+
+        {/* Spacer between icons */}
+        <AutoLayout width={10} height={1} />
+
+        {/* Delete */}
+        <TrashIcon onClick={onDelete} />
       </AutoLayout>
 
-      <Rectangle width={1} height={28} fill="#99CAFF" />
-
-      <AutoLayout width="fill-parent" height="fill-parent" verticalAlignItems="center" padding={{ left: 12, right: 8 }}>
-        <Input
-          value={state.url}
-          placeholder="https://..."
-          onTextEditEnd={(e) => onUrlConfirm(e.characters)}
-          fontSize={12}
-          fontFamily="Inter"
-          fill="#0066CC"
-          width="fill-parent"
-          inputBehavior="truncate"
-        />
-      </AutoLayout>
-
-      <Rectangle width={1} height={28} fill="#99CAFF" />
-
-      <AutoLayout width={144} height="fill-parent" verticalAlignItems="center" horizontalAlignItems="center">
-        <Text fontSize={10} fontFamily="Inter" fill="#0066CC">Press Enter to confirm</Text>
-      </AutoLayout>
+      {/* Row divider */}
+      {!isLast && <Rectangle width="fill-parent" height={1} fill="#F0F0F0" />}
     </AutoLayout>
   )
 }
 
 function Widget() {
   const [assets, setAssets] = useSyncedState('assets', [] as Asset[])
-  const [newRow, setNewRow] = useSyncedState('newRow', {
-    active: false,
-    name: '',
-    url: '',
-  } as NewRowState)
+  const [pendingSort, setPendingSort] = useSyncedState('pendingSort', false)
 
-  const notDone = assets.filter((a) => !a.implemented)
-  const done = assets.filter((a) => a.implemented)
-  const sortedAssets = [...notDone, ...done]
-  const implemented = done.length
+  const sortedAssets = [...assets].sort((a, b) => {
+    if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey
+    return statusOrder(a.status) - statusOrder(b.status)
+  })
+
+  const implemented = assets.filter((a) => a.status === 'Implemented').length
   const total = assets.length
 
+  useEffect(() => {
+    if (!pendingSort) return
+    waitForTask(
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          setAssets(
+            assets
+              .slice()
+              .sort((a, b) => statusOrder(a.status) - statusOrder(b.status))
+              .map((a, i) => ({ ...a, sortKey: i }))
+          )
+          setPendingSort(false)
+          resolve()
+        }, 2000)
+      })
+    )
+  })
+
   function handleAddAsset() {
-    setNewRow({ active: true, name: '', url: '' })
+    setAssets([
+      ...assets,
+      {
+        id: generateId(),
+        name: 'Asset name',
+        url: 'URL to asset',
+        status: 'Pending',
+        sortKey: assets.length,
+      },
+    ])
   }
 
-  function handleNameConfirm(value: string) {
-    const name = value.trim()
-    if (!name) {
-      setNewRow({ active: false, name: '', url: '' })
-      return
-    }
-    setNewRow({ active: true, name, url: '' })
-  }
-
-  function handleUrlConfirm(value: string) {
-    const url = value.trim()
-    const name = newRow.name.trim()
-    if (name) {
-      setAssets([...assets, { id: generateId(), name, url, implemented: false }])
-    }
-    setNewRow({ active: false, name: '', url: '' })
-  }
-
-  function handleToggle(id: string) {
-    setAssets(assets.map((a) => (a.id === id ? { ...a, implemented: !a.implemented } : a)))
+  function handleStatusChange(id: string) {
+    setAssets(assets.map((a) => (a.id === id ? { ...a, status: nextStatus(a.status) } : a)))
+    setPendingSort(true)
   }
 
   function handleDelete(id: string) {
@@ -249,98 +261,105 @@ function Widget() {
     <AutoLayout
       direction="vertical"
       spacing={0}
-      width={480}
-      fill="#FFFFFF"
-      cornerRadius={10}
-      stroke="#E0E0E0"
-      strokeWidth={1}
+      width={560}
+      fill="#FDFDFD"
+      cornerRadius={12}
+      effect={[{
+        type: 'drop-shadow',
+        color: { r: 0, g: 0, b: 0, a: 0.08 },
+        offset: { x: 0, y: 2 },
+        blur: 16,
+        spread: 0,
+      }]}
     >
       {/* Header */}
       <AutoLayout
         width="fill-parent"
-        height={52}
+        height={60}
         verticalAlignItems="center"
         spacing={8}
-        padding={{ left: 16, right: 16 }}
-        fill="#FAFAFA"
-        stroke="#E5E5E5"
-        strokeWidth={1}
+        padding={{ left: 20, right: 16 }}
       >
         <AutoLayout direction="vertical" spacing={2}>
-          <Text fontSize={15} fontFamily="Inter" fill="#1A1A1A">Asset Tracker</Text>
-          <Text fontSize={11} fontFamily="Inter" fill="#999999">{implemented + '/' + total + ' implemented'}</Text>
+          <Text fontSize={18} fontFamily="Inter" fill="#111111">Asset Tracker</Text>
+          <Text fontSize={12} fontFamily="Inter" fill="#999999">
+            {total === 0 ? 'No assets yet' : implemented + ' of ' + total + ' implemented'}
+          </Text>
         </AutoLayout>
         <AutoLayout width="fill-parent" height={1} />
         <AutoLayout
-          padding={{ left: 12, right: 12, top: 7, bottom: 7 }}
-          fill="#1A1A1A"
-          cornerRadius={6}
+          padding={{ left: 14, right: 14, top: 8, bottom: 8 }}
+          fill="#222222"
+          cornerRadius={8}
           onClick={handleAddAsset}
         >
-          <Text fontSize={12} fontFamily="Inter" fill="#FFFFFF">+ New Asset</Text>
+          <Text fontSize={13} fontFamily="Inter" fill="#FFFFFF">+ New Asset</Text>
+        </AutoLayout>
+      </AutoLayout>
+
+      {/* Progress bar */}
+      <AutoLayout
+        width="fill-parent"
+        height={20}
+        verticalAlignItems="center"
+        padding={{ left: 20, right: 20 }}
+      >
+        <AutoLayout width="fill-parent" height={6} fill="#F0F0F0" cornerRadius={3}>
+          <AutoLayout
+            width={total === 0 ? 0 : Math.round((implemented / total) * 520)}
+            height={6}
+            fill="#39AD60"
+            cornerRadius={3}
+          />
         </AutoLayout>
       </AutoLayout>
 
       {/* Column headers */}
       <AutoLayout
         width="fill-parent"
-        height={32}
+        height={36}
         verticalAlignItems="center"
         spacing={0}
-        fill="#F5F5F5"
-        stroke="#E5E5E5"
-        strokeWidth={1}
+        padding={{ left: 20, right: 12 }}
+        fill="#FDFDFD"
       >
-        <AutoLayout width={180} height="fill-parent" verticalAlignItems="center" padding={{ left: 12 }}>
-          <Text fontSize={11} fontFamily="Inter" fill="#888888">NAME</Text>
+        <AutoLayout width={200} height="fill-parent" verticalAlignItems="center" padding={{ right: 16 }}>
+          <Text fontSize={11} fontFamily="Inter" fill="#999999" letterSpacing={0.8}>NAME</Text>
         </AutoLayout>
-        <Rectangle width={1} height={20} fill="#E5E5E5" />
-        <AutoLayout width="fill-parent" height="fill-parent" verticalAlignItems="center" padding={{ left: 12 }}>
-          <Text fontSize={11} fontFamily="Inter" fill="#888888">URL</Text>
+        <AutoLayout width={130} height="fill-parent" verticalAlignItems="center">
+          <Text fontSize={11} fontFamily="Inter" fill="#999999" letterSpacing={0.8}>STATUS</Text>
         </AutoLayout>
-        <Rectangle width={1} height={20} fill="#E5E5E5" />
-        <AutoLayout width={44} height="fill-parent" verticalAlignItems="center" horizontalAlignItems="center">
-          <Text fontSize={11} fontFamily="Inter" fill="#888888">{'\u2197'}</Text>
+        <AutoLayout width="fill-parent" height="fill-parent" verticalAlignItems="center">
+          <Text fontSize={11} fontFamily="Inter" fill="#999999" letterSpacing={0.8}>URL</Text>
         </AutoLayout>
-        <Rectangle width={1} height={20} fill="#E5E5E5" />
-        <AutoLayout width={64} height="fill-parent" verticalAlignItems="center" horizontalAlignItems="center">
-          <Text fontSize={11} fontFamily="Inter" fill="#888888">DONE</Text>
-        </AutoLayout>
-        <Rectangle width={1} height={20} fill="#E5E5E5" />
-        <AutoLayout width={36} height="fill-parent" verticalAlignItems="center" horizontalAlignItems="center">
-          <Text fontSize={11} fontFamily="Inter" fill="#888888">{'\u2014'}</Text>
-        </AutoLayout>
+        <AutoLayout width={72} height="fill-parent" />
       </AutoLayout>
 
-      {/* Rows */}
-      <AutoLayout
-        direction="vertical"
-        width="fill-parent"
-        spacing={4}
-        padding={{ left: 8, right: 8, top: 8, bottom: 8 }}
-      >
-        {newRow.active && (
-          <NewAssetRow
-            state={newRow}
-            onNameConfirm={handleNameConfirm}
-            onUrlConfirm={handleUrlConfirm}
-          />
-        )}
+      {/* Header / rows divider */}
+      <Rectangle width="fill-parent" height={1} fill="#EEEEEE" />
 
-        {sortedAssets.map((asset) => (
+      {/* Rows */}
+      <AutoLayout direction="vertical" width="fill-parent" spacing={0}>
+        {sortedAssets.map((asset, i) => (
           <AssetRow
             key={asset.id}
             asset={asset}
-            onToggle={() => handleToggle(asset.id)}
+            isLast={i === sortedAssets.length - 1}
+            onStatusChange={() => handleStatusChange(asset.id)}
             onDelete={() => handleDelete(asset.id)}
             onEditName={(v) => handleEditName(asset.id, v)}
             onEditUrl={(v) => handleEditUrl(asset.id, v)}
           />
         ))}
 
-        {assets.length === 0 && !newRow.active && (
-          <AutoLayout width="fill-parent" height={60} verticalAlignItems="center" horizontalAlignItems="center">
-            <Text fontSize={13} fontFamily="Inter" fill="#BBBBBB">
+        {assets.length === 0 && (
+          <AutoLayout
+            width="fill-parent"
+            height={80}
+            verticalAlignItems="center"
+            horizontalAlignItems="center"
+          >
+            <Text fontSize={13} fontFamily="Inter" fill="#CCCCCC">
               No assets yet — click "+ New Asset" to get started
             </Text>
           </AutoLayout>
