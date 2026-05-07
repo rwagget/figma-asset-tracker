@@ -18,7 +18,7 @@
   "figma-plugin": {
   "editorType": ["figma"],
   "containsWidget": true,
-  "id": "asset-tracker-widget",
+  "id": "1634012511879529070",
   "name": "Asset Tracker",
   "main": "src/main.tsx",
   "documentAccess": "dynamic-page"
